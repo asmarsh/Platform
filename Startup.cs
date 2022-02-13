@@ -1,7 +1,3 @@
-using System;
-using System.Collections.Generic;
-using System.Linq;
-using System.Threading.Tasks;
 using Microsoft.AspNetCore.Builder;
 using Microsoft.AspNetCore.Hosting;
 using Microsoft.AspNetCore.Http;
@@ -25,9 +21,16 @@ namespace Platform
             {
                 app.UseDeveloperExceptionPage();
             }
-
+            app.Map("/branch", branch =>
+            {
+                branch.UseMiddleware<QueryStringMiddleWare>();
+                branch.Use(async (context, next) =>
+                {
+                    await context.Response.WriteAsync($"Branch Middleware");
+                });
+            });
+            app.UseMiddleware<QueryStringMiddleWare>();
             app.UseRouting();
-
             app.UseEndpoints(endpoints =>
             {
                 endpoints.MapGet("/", async context =>
