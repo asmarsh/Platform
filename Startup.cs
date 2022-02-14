@@ -2,58 +2,54 @@ using Microsoft.AspNetCore.Builder;
 using Microsoft.AspNetCore.Hosting;
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Routing;
+using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
+using System;
+using System.Collections.Generic;
+using System.Linq;
 
 namespace Platform
 {
     public class Startup
     {
+        public Startup(IConfiguration config)
+        {
+            Configuration = config;
+        }
+
+        private IConfiguration Configuration;
+
         public void ConfigureServices(IServiceCollection services)
         {
-            services.Configure<RouteOptions>(opts =>
-            {
-                opts.ConstraintMap.Add("countryName",
-                typeof(CountryRouteConstraint));
-            });
+            services.AddSingleton(typeof(ICollection<>), typeof(List<>));
         }
 
         public void Configure(IApplicationBuilder app, IWebHostEnvironment env)
         {
             app.UseDeveloperExceptionPage();
             app.UseRouting();
-            app.Use(async (context, next) =>
-            {
-                Endpoint end = context.GetEndpoint();
-                if (end != null)
-                {
-                    await context.Response
-                    .WriteAsync($"{end.DisplayName} Selected \n");
-                }
-                else
-                {
-                    await context.Response.WriteAsync("No Endpoint Selected \n");
-                }
-                await next();
-            });
             app.UseEndpoints(endpoints =>
             {
-                endpoints.Map("{number:int}", async context =>
+                endpoints.MapGet("/string", async context =>
                 {
-                    await context.Response.WriteAsync("Routed to the int endpoint");
-                })
-                .WithDisplayName("Int Endpoint")
-                .Add(b => ((RouteEndpointBuilder)b).Order = 1);
-                endpoints.Map("{number:double}", async context =>
+                    ICollection<string> collection
+                    = context.RequestServices.GetService<ICollection<string>>();
+                    collection.Add($"Request: { DateTime.Now.ToLongTimeString() }");
+                    foreach (string str in collection)
+                    {
+                        await context.Response.WriteAsync($"String: {str}\n");
+                    }
+                });
+                endpoints.MapGet("/int", async context =>
                 {
-                    await context.Response
-                    .WriteAsync("Routed to the double endpoint");
-                })
-                .WithDisplayName("Double Endpoint")
-                .Add(b => ((RouteEndpointBuilder)b).Order = 2);
-            });
-            app.Use(async (context, next) =>
-            {
-                await context.Response.WriteAsync("Terminal Middleware Reached");
+                    ICollection<int> collection
+                    = context.RequestServices.GetService<ICollection<int>>();
+                    collection.Add(collection.Count() + 1);
+                    foreach (int val in collection)
+                    {
+                        await context.Response.WriteAsync($"Int: {val}\n");
+                    }
+                });
             });
         }
     }
