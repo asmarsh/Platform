@@ -1,11 +1,16 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
 <Project Sdk="Microsoft.NET.Sdk.Web">
-
   <PropertyGroup>
     <TargetFramework>netcoreapp3.1</TargetFramework>
+    <UserSecretsId>85a9c9e3-242b-4d28-8866-9280a71db003</UserSecretsId>
   </PropertyGroup>
-
+  <ItemGroup>
+    <Content Include="staticfiles\hello.html" />
+  </ItemGroup>
   <ItemGroup>
     <PackageReference Include="Swashbuckle.AspNetCore" Version="5.0.0-rc2" />
   </ItemGroup>
-
+  <ItemGroup>
+    <Folder Include="bin\" />
+  </ItemGroup>
 </Project>

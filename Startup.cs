@@ -1,54 +1,52 @@
 using Microsoft.AspNetCore.Builder;
 using Microsoft.AspNetCore.Hosting;
 using Microsoft.AspNetCore.Http;
-using Microsoft.AspNetCore.Routing;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
-using System;
-using System.Collections.Generic;
-using System.Linq;
+using Microsoft.Extensions.FileProviders;
+using Microsoft.Extensions.Hosting;
+using Microsoft.Extensions.Logging;
+using static Platform.QueryStringMiddleWare;
 
 namespace Platform
 {
     public class Startup
     {
-        public Startup(IConfiguration config)
+        public Startup(IConfiguration configService)
         {
-            Configuration = config;
+            Configuration = configService;
         }
 
-        private IConfiguration Configuration;
+        private IConfiguration Configuration { get; set; }
 
         public void ConfigureServices(IServiceCollection services)
         {
-            services.AddSingleton(typeof(ICollection<>), typeof(List<>));
+            services.Configure<MessageOptions>(Configuration.GetSection("Location"));
         }
 
-        public void Configure(IApplicationBuilder app, IWebHostEnvironment env)
+        public void Configure(IApplicationBuilder app,
+        IWebHostEnvironment env, ILogger<Startup> logger)
         {
-            app.UseDeveloperExceptionPage();
+            if (env.IsDevelopment())
+            {
+                app.UseDeveloperExceptionPage();
+            }
+            app.UseStaticFiles();
+            app.UseStaticFiles(new StaticFileOptions
+            {
+                FileProvider = new
+                PhysicalFileProvider($"{env.ContentRootPath}/staticfiles"),
+                RequestPath = "/files"
+            });
             app.UseRouting();
+            app.UseMiddleware<LocationMiddleware>();
             app.UseEndpoints(endpoints =>
             {
-                endpoints.MapGet("/string", async context =>
+                endpoints.MapGet("/", async context =>
                 {
-                    ICollection<string> collection
-                    = context.RequestServices.GetService<ICollection<string>>();
-                    collection.Add($"Request: { DateTime.Now.ToLongTimeString() }");
-                    foreach (string str in collection)
-                    {
-                        await context.Response.WriteAsync($"String: {str}\n");
-                    }
-                });
-                endpoints.MapGet("/int", async context =>
-                {
-                    ICollection<int> collection
-                    = context.RequestServices.GetService<ICollection<int>>();
-                    collection.Add(collection.Count() + 1);
-                    foreach (int val in collection)
-                    {
-                        await context.Response.WriteAsync($"Int: {val}\n");
-                    }
+                    logger.LogDebug("Response for / started");
+                    await context.Response.WriteAsync("Hello World!");
+                    logger.LogDebug("Response for / completed");
                 });
             });
         }
