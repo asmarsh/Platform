@@ -1,53 +1,69 @@
 using Microsoft.AspNetCore.Builder;
+using Microsoft.AspNetCore.HostFiltering;
 using Microsoft.AspNetCore.Hosting;
 using Microsoft.AspNetCore.Http;
-using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
-using Microsoft.Extensions.FileProviders;
 using Microsoft.Extensions.Hosting;
-using Microsoft.Extensions.Logging;
-using static Platform.QueryStringMiddleWare;
+using System;
+using System.Threading.Tasks;
 
 namespace Platform
 {
     public class Startup
     {
-        public Startup(IConfiguration configService)
-        {
-            Configuration = configService;
-        }
-
-        private IConfiguration Configuration { get; set; }
-
         public void ConfigureServices(IServiceCollection services)
         {
-            services.Configure<MessageOptions>(Configuration.GetSection("Location"));
+            services.Configure<CookiePolicyOptions>(opts =>
+            {
+                opts.CheckConsentNeeded = context => true;
+            });
+            services.AddDistributedMemoryCache();
+            services.AddSession(options =>
+            {
+                options.IdleTimeout = TimeSpan.FromMinutes(30);
+                options.Cookie.IsEssential = true;
+            });
+            services.AddHsts(opts =>
+            {
+                opts.MaxAge = TimeSpan.FromDays(1);
+                opts.IncludeSubDomains = true;
+            });
+            services.Configure<HostFilteringOptions>(opts =>
+            {
+                opts.AllowedHosts.Clear();
+                opts.AllowedHosts.Add("*.example.com");
+            });
         }
 
-        public void Configure(IApplicationBuilder app,
-        IWebHostEnvironment env, ILogger<Startup> logger)
+        public void Configure(IApplicationBuilder app, IWebHostEnvironment env)
         {
-            if (env.IsDevelopment())
+            //app.UseDeveloperExceptionPage();
+            app.UseExceptionHandler("/error.html");
+            if (env.IsProduction())
             {
-                app.UseDeveloperExceptionPage();
+                app.UseHsts();
             }
             app.UseStaticFiles();
-            app.UseStaticFiles(new StaticFileOptions
+            app.UseHttpsRedirection();
+            app.UseStatusCodePages("text/html", Responses.DefaultResponse);
+            app.UseCookiePolicy();
+            app.UseMiddleware<ConsentMiddleware>();
+            app.UseSession();
+            app.Use(async (context, next) =>
             {
-                FileProvider = new
-                PhysicalFileProvider($"{env.ContentRootPath}/staticfiles"),
-                RequestPath = "/files"
-            });
-            app.UseRouting();
-            app.UseMiddleware<LocationMiddleware>();
-            app.UseEndpoints(endpoints =>
-            {
-                endpoints.MapGet("/", async context =>
+                if (context.Request.Path == "/error")
                 {
-                    logger.LogDebug("Response for / started");
-                    await context.Response.WriteAsync("Hello World!");
-                    logger.LogDebug("Response for / completed");
-                });
+                    context.Response.StatusCode = StatusCodes.Status404NotFound;
+                    await Task.CompletedTask;
+                }
+                else
+                {
+                    await next();
+                }
+            });
+            app.Run(context =>
+            {
+                throw new Exception("Something has gone wrong");
             });
         }
     }
